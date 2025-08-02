@@ -142,56 +142,42 @@ export default function VoiceChat() {
     }
   };
 
+  const handleSignOut = () => {
+    if (confirm('Are you sure you want to sign out?')) {
+      localStorage.removeItem('user');
+      sessionStorage.removeItem('user');
+      window.location.href = '/';
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center px-4 sm:px-6 lg:px-8">
-      {/* Background Effects */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_70%,rgba(34,197,94,0.1),transparent_50%)]"></div>
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_30%,rgba(59,130,246,0.1),transparent_50%)]"></div>
-      
-      <div className="relative z-10 w-full max-w-4xl">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="flex justify-between items-center mb-4">
-            <button
-              onClick={() => window.location.href = '/dashboard'}
-              className="flex items-center space-x-2 px-4 py-2 bg-slate-700/50 hover:bg-slate-600/50 text-gray-300 hover:text-white rounded-lg transition-colors"
-            >
-              <span>←</span>
-              <span>Back to Dashboard</span>
-            </button>
-            <div className="flex items-center space-x-4">
-              <button 
-                onClick={() => {
-                  window.location.href = '/profile';
-                }}
-                className="text-gray-400 hover:text-white transition-colors flex items-center space-x-2"
-              >
-                <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center text-white font-bold">
-                  {user.name.charAt(0).toUpperCase()}
-                </div>
-                <span>Profile</span>
-              </button>
-              <button 
-                onClick={() => {
-                  // Clear any stored user data
-                  localStorage.removeItem('user');
-                  sessionStorage.removeItem('user');
-                  // Show confirmation
-                  if (confirm('Are you sure you want to sign out?')) {
-                    // Redirect to home page
-                    window.location.href = '/';
-                  }
-                }}
-                className="text-gray-400 hover:text-white transition-colors flex items-center space-x-2"
-              >
-                <span>🔓</span>
-                <span>Sign Out</span>
-              </button>
-            </div>
-          </div>
-          <h1 className="text-4xl font-bold text-white mb-2">💬 Chat with RajniAI</h1>
-          <p className="text-gray-300">Have a conversation with your personal AI assistant</p>
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 p-4">
+      {/* Header */}
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold text-white flex items-center gap-2">
+          💬 Chat with RajniAI
+        </h1>
+        <div className="flex gap-2">
+          <button
+            onClick={() => window.location.href = '/dashboard'}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            ← Back to Dashboard
+          </button>
+          <button
+            onClick={() => window.location.href = '/profile'}
+            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+          >
+            👤 Profile
+          </button>
+          <button
+            onClick={handleSignOut}
+            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+          >
+            Sign Out
+          </button>
         </div>
+      </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Chat Controls */}
@@ -297,12 +283,14 @@ export default function VoiceChat() {
           </div>
         </div>
 
-        {/* Back to Home */}
-        <div className="mt-8 text-center">
-          <a href="/" className="text-gray-400 hover:text-white text-sm transition-colors">
-            ← Back to Home
-          </a>
-        </div>
+      {/* Footer */}
+      <div className="mt-8 text-center">
+        <button
+          onClick={() => window.location.href = '/dashboard'}
+          className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          ← Back to Dashboard
+        </button>
       </div>
     </div>
   );
