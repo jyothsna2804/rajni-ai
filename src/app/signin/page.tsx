@@ -36,21 +36,31 @@ export default function SignIn() {
             };
             localStorage.setItem('user', JSON.stringify(userData));
             
-            // Check if user has preferences - if not, redirect to profile first
-            fetch(`/api/user-preferences?userId=${userData.id}`)
-              .then(response => {
-                if (response.status === 404) {
-                  // New user - redirect to profile first
-                  window.location.href = '/profile';
-                } else {
-                  // Existing user - redirect directly to voice chat
-                  window.location.href = '/voice-chat';
-                }
-              })
-              .catch(() => {
-                // Error - assume new user, redirect to profile
+            // Check if user has preferences and profile
+            Promise.all([
+              fetch(`/api/user-preferences?userId=${userData.id}`),
+              fetch(`/api/user-profiles?userId=${userData.id}`)
+            ]).then(([preferencesResponse, profileResponse]) => {
+              const hasPreferences = preferencesResponse.ok;
+              const hasProfile = profileResponse.ok;
+              
+              console.log('User signin check:', { hasPreferences, hasProfile });
+              
+              if (hasPreferences && hasProfile) {
+                // Returning user with complete setup - go directly to voice chat
+                window.location.href = '/voice-chat';
+              } else if (hasProfile && !hasPreferences) {
+                // Has profile but no preferences - go to preferences
+                window.location.href = '/preferences';
+              } else {
+                // New user or incomplete setup - start with profile
                 window.location.href = '/profile';
-              });
+              }
+            }).catch(() => {
+              // Error - assume new user, redirect to profile
+              console.log('Error checking user data - redirecting to profile');
+              window.location.href = '/profile';
+            });
           }}>
             {/* Email */}
             <div>

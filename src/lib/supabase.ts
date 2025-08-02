@@ -19,4 +19,5 @@ if (!supabaseAnonKey) {
 console.log('✅ Supabase environment variables loaded successfully')
 console.log('URL:', supabaseUrl.substring(0, 20) + '...')
 console.log('Key:', supabaseAnonKey.substring(0, 20) + '...')
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey) 

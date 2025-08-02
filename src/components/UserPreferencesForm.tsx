@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface UserPreferencesFormProps {
   userId: string;
@@ -9,6 +9,7 @@ interface UserPreferencesFormProps {
 
 export default function UserPreferencesForm({ userId, onSubmit }: UserPreferencesFormProps) {
   const [step, setStep] = useState(1);
+  const [isLoading, setIsLoading] = useState(true);
   const [preferences, setPreferences] = useState({
     // Food & Grocery Preferences
     groceryApps: [] as string[],
@@ -49,6 +50,54 @@ export default function UserPreferencesForm({ userId, onSubmit }: UserPreference
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Load existing preferences when component mounts
+  useEffect(() => {
+    const loadExistingPreferences = async () => {
+      if (!userId) return;
+      
+      try {
+        const response = await fetch(`/api/user-preferences?userId=${userId}`);
+        if (response.ok) {
+          const existingPreferences = await response.json();
+          console.log('Loaded existing preferences:', existingPreferences);
+          
+          // Merge existing preferences with default values
+          setPreferences(prev => ({
+            ...prev,
+            ...existingPreferences,
+            // Ensure arrays are properly handled
+            groceryApps: existingPreferences.groceryApps || [],
+            foodApps: existingPreferences.foodApps || [],
+            preferredCuisines: existingPreferences.preferredCuisines || [],
+            goToRestaurants: existingPreferences.goToRestaurants || [],
+            flightBookingSites: existingPreferences.flightBookingSites || [],
+            cabServices: existingPreferences.cabServices || [],
+            frequentFlightRoutes: existingPreferences.frequentFlightRoutes || [],
+            ecommerceSites: existingPreferences.ecommerceSites || [],
+            favoriteBrands: existingPreferences.favoriteBrands || [],
+            productCategories: existingPreferences.productCategories || [],
+            paymentMethods: existingPreferences.paymentMethods || [],
+            // Ensure objects are properly handled
+            usualMealTimes: existingPreferences.usualMealTimes || { lunch: '', dinner: '' },
+            flightPreferences: existingPreferences.flightPreferences || { class: 'economy', seat: 'window' },
+            spendingLimits: existingPreferences.spendingLimits || { daily: '', weekly: '', monthly: '' },
+            workingHours: existingPreferences.workingHours || { start: '', end: '' }
+          }));
+        } else if (response.status === 404) {
+          console.log('No existing preferences found - using defaults');
+        } else {
+          console.error('Error loading preferences:', response.status);
+        }
+      } catch (error) {
+        console.error('Error loading existing preferences:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadExistingPreferences();
+  }, [userId]);
+
   const handleArrayChange = (field: string, value: string, checked: boolean) => {
     setPreferences(prev => ({
       ...prev,
@@ -71,9 +120,11 @@ export default function UserPreferencesForm({ userId, onSubmit }: UserPreference
         onSubmit?.(preferences);
       } else {
         console.error('Failed to save preferences');
+        alert('Failed to save preferences. Please try again.');
       }
     } catch (error) {
       console.error('Error saving preferences:', error);
+      alert('Error saving preferences. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -521,6 +572,18 @@ export default function UserPreferencesForm({ userId, onSubmit }: UserPreference
       </div>
     </div>
   );
+
+  // Show loading state while fetching existing preferences
+  if (isLoading) {
+    return (
+      <div className="max-w-4xl mx-auto">
+        <div className="bg-white/5 backdrop-blur-sm rounded-lg p-8 border border-white/10 text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto mb-4"></div>
+          <p className="text-gray-300">Loading your preferences...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto">

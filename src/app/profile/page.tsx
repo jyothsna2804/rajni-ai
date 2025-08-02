@@ -3,76 +3,166 @@
 import { useState, useEffect } from 'react';
 
 interface ProfileData {
-  age: string;
+  fullName: string;
+  nickname: string;
+  email: string;
   gender: string;
-  occupation: string;
-  lifestyle: string;
-  interests: string[];
-  location: string;
-  familyStatus: string;
-  techSavviness: string;
+  birthday: string;
+  homeAddress: string;
+  workAddress: string;
+  frequentLocations: string[];
+  workingHours: { start: string; end: string };
+  aiPersonality: string;
+  responseLength: string;
+  budgetLevel: string;
+  nudgePermission: boolean;
 }
 
 export default function ProfilePage() {
   const [profileData, setProfileData] = useState<ProfileData>({
-    age: '',
+    fullName: '',
+    nickname: '',
+    email: '',
     gender: '',
-    occupation: '',
-    lifestyle: '',
-    interests: [],
-    location: '',
-    familyStatus: '',
-    techSavviness: ''
+    birthday: '',
+    homeAddress: '',
+    workAddress: '',
+    frequentLocations: [],
+    workingHours: { start: '', end: '' },
+    aiPersonality: 'FRIENDLY',
+    responseLength: 'DETAILED',
+    budgetLevel: 'MEDIUM',
+    nudgePermission: true
   });
   const [isEditing, setIsEditing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
     // Get user data from localStorage
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
-      setUser(JSON.parse(storedUser));
+      const userData = JSON.parse(storedUser);
+      setUser(userData);
+      
+      // Load existing profile data
+      loadProfileData(userData.id);
+      
+      // Pre-fill email from user data
+      setProfileData(prev => ({
+        ...prev,
+        email: userData.email,
+        fullName: userData.name
+      }));
+    } else {
+      setIsLoading(false);
     }
   }, []);
 
-  const handleInputChange = (field: keyof ProfileData, value: string | string[]) => {
+  const loadProfileData = async (userId: string) => {
+    try {
+      const response = await fetch(`/api/user-profiles?userId=${userId}`);
+      if (response.ok) {
+        const existingProfile = await response.json();
+        console.log('Loaded existing profile:', existingProfile);
+        setProfileData(prev => ({ ...prev, ...existingProfile }));
+        setIsEditing(false); // Show view mode if profile exists
+      } else if (response.status === 404) {
+        console.log('No existing profile found - new user');
+        setIsEditing(true); // Show edit mode for new users
+      }
+    } catch (error) {
+      console.error('Error loading profile:', error);
+      setIsEditing(true); // Default to edit mode on error
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleInputChange = (field: keyof ProfileData, value: string | string[] | boolean | { start: string; end: string }) => {
     setProfileData(prev => ({
       ...prev,
       [field]: value
     }));
   };
 
-  const handleInterestToggle = (interest: string) => {
+  const handleLocationToggle = (location: string) => {
     setProfileData(prev => ({
       ...prev,
-      interests: prev.interests.includes(interest)
-        ? prev.interests.filter(i => i !== interest)
-        : [...prev.interests, interest]
+      frequentLocations: prev.frequentLocations.includes(location)
+        ? prev.frequentLocations.filter(l => l !== location)
+        : [...prev.frequentLocations, location]
     }));
   };
 
-  const handleSave = () => {
-    // Save profile data to localStorage for now
-    localStorage.setItem('userProfile', JSON.stringify(profileData));
-    setIsEditing(false);
-    alert('Profile updated successfully! Redirecting to preferences...');
+  const handleSave = async () => {
+    if (!user) return;
     
-    // Redirect to preferences after saving profile
-    setTimeout(() => {
-      window.location.href = '/preferences';
-    }, 1000);
+    setIsSaving(true);
+    try {
+      const response = await fetch('/api/user-profiles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, profile: profileData })
+      });
+
+      if (response.ok) {
+        setIsEditing(false);
+        
+        // Check if user already has preferences
+        const preferencesResponse = await fetch(`/api/user-preferences?userId=${user.id}`);
+        
+        if (preferencesResponse.ok) {
+          // User has preferences - redirect to voice chat
+          alert('Profile updated successfully! Redirecting to voice chat...');
+          setTimeout(() => {
+            window.location.href = '/voice-chat';
+          }, 1000);
+        } else {
+          // New user - redirect to preferences setup
+          alert('Profile saved successfully! Now let\'s set up your preferences...');
+          setTimeout(() => {
+            window.location.href = '/preferences';
+          }, 1000);
+        }
+      } else {
+        throw new Error('Failed to save profile');
+      }
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      alert('Error saving profile. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleEditPreferences = () => {
     window.location.href = '/preferences';
   };
 
-  if (!user) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto mb-4"></div>
-          <p className="text-gray-300">Loading...</p>
+          <p className="text-gray-300">Loading your profile...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-300 mb-4">Please sign in to access your profile.</p>
+          <button
+            onClick={() => window.location.href = '/signin'}
+            className="px-6 py-3 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
+          >
+            Sign In
+          </button>
         </div>
       </div>
     );
