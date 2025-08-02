@@ -25,6 +25,13 @@ export default function Home() {
     }
   }, []);
 
+  const handleSignOut = () => {
+    localStorage.removeItem('user');
+    setUser(null);
+    setHasPreferences(false);
+    window.location.reload();
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 relative overflow-hidden">
       {/* Background Elements */}
@@ -97,23 +104,51 @@ export default function Home() {
               </a>
             </div>
           ) : (
-            // Signed in - show appropriate action based on preferences
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              {hasPreferences ? (
-                <a 
-                  href="/voice-chat" 
-                  className="group relative inline-flex items-center justify-center px-8 py-4 text-lg font-bold text-white bg-gradient-to-r from-emerald-600 to-emerald-500 rounded-full border border-emerald-500/30 hover:border-emerald-400/50 transition-all duration-300 transform hover:scale-105"
-                >
-                  <span className="relative z-10">🎯 Start Voice Chat</span>
-                </a>
-              ) : (
+            // Signed in - show multiple options
+            <div className="flex flex-col gap-4 justify-center items-center">
+              <div className="text-white mb-4">
+                Welcome back, {user.name || user.email || 'User'}! 👋
+              </div>
+              
+              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                {hasPreferences ? (
+                  <>
+                    <a 
+                      href="/voice-chat" 
+                      className="group relative inline-flex items-center justify-center px-8 py-4 text-lg font-bold text-white bg-gradient-to-r from-emerald-600 to-emerald-500 rounded-full border border-emerald-500/30 hover:border-emerald-400/50 transition-all duration-300 transform hover:scale-105"
+                    >
+                      <span className="relative z-10">🎤 Start Voice Chat</span>
+                    </a>
+                    <a 
+                      href="/dashboard" 
+                      className="group relative inline-flex items-center justify-center px-8 py-4 text-lg font-bold text-white bg-gradient-to-r from-blue-600 to-blue-500 rounded-full border border-blue-500/30 hover:border-blue-400/50 transition-all duration-300 transform hover:scale-105"
+                    >
+                      <span className="relative z-10">📊 Dashboard</span>
+                    </a>
+                  </>
+                ) : (
+                  <a 
+                    href="/profile" 
+                    className="group relative inline-flex items-center justify-center px-8 py-4 text-lg font-bold text-white bg-gradient-to-r from-emerald-600 to-emerald-500 rounded-full border border-emerald-500/30 hover:border-emerald-400/50 transition-all duration-300 transform hover:scale-105"
+                  >
+                    <span className="relative z-10">👤 Complete Profile</span>
+                  </a>
+                )}
+                
                 <a 
                   href="/profile" 
-                  className="group relative inline-flex items-center justify-center px-8 py-4 text-lg font-bold text-white bg-gradient-to-r from-emerald-600 to-emerald-500 rounded-full border border-emerald-500/30 hover:border-emerald-400/50 transition-all duration-300 transform hover:scale-105"
+                  className="group relative inline-flex items-center justify-center px-8 py-4 text-lg font-bold text-white bg-gradient-to-r from-slate-700 to-slate-600 rounded-full border border-slate-500/30 hover:border-slate-400/50 transition-all duration-300 transform hover:scale-105"
                 >
-                  <span className="relative z-10">👤 Complete Profile</span>
+                  <span className="relative z-10">⚙️ Profile</span>
                 </a>
-              )}
+                
+                <button 
+                  onClick={handleSignOut}
+                  className="group relative inline-flex items-center justify-center px-8 py-4 text-lg font-bold text-white bg-gradient-to-r from-red-600 to-red-500 rounded-full border border-red-500/30 hover:border-red-400/50 transition-all duration-300 transform hover:scale-105"
+                >
+                  <span className="relative z-10">🚪 Sign Out</span>
+                </button>
+              </div>
             </div>
           )}
 
