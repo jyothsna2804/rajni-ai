@@ -15,25 +15,22 @@ export async function POST(request: NextRequest) {
     console.log('Saving profile for user:', userId);
     console.log('Profile:', profile);
 
-    // Save to Supabase
+    // Save to Supabase (only fields that exist in the database schema)
     const { data, error } = await supabase
       .from('user_profiles')
       .upsert({
         user_id: userId,
-        full_name: profile.fullName,
-        nickname: profile.nickname,
-        email: profile.email,
-        gender: profile.gender,
-        birthday: profile.birthday,
-        home_address: profile.homeAddress,
-        work_address: profile.workAddress,
-        frequent_locations: profile.frequentLocations,
-        working_hours: profile.workingHours,
-        ai_personality: profile.aiPersonality,
-        response_length: profile.responseLength,
-        budget_level: profile.budgetLevel,
-        nudge_permission: profile.nudgePermission,
-        created_at: new Date().toISOString(),
+        full_name: profile.fullName || '',
+        nickname: profile.nickname || '',
+        gender: profile.gender || '',
+        birthday: profile.birthday || null,
+        home_address: profile.homeAddress || '',
+        work_address: profile.workAddress || '',
+        frequent_locations: Array.isArray(profile.frequentLocations) ? profile.frequentLocations : [],
+        working_hours: typeof profile.workingHours === 'object' ? profile.workingHours : {},
+        ai_personality: profile.aiPersonality || 'FRIENDLY',
+        response_length: profile.responseLength || 'DETAILED',
+        nudge_permission: Boolean(profile.nudgePermission),
         updated_at: new Date().toISOString()
       }, {
         onConflict: 'user_id'
@@ -90,21 +87,19 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Convert to frontend format
+    // Convert to frontend format (only fields that exist in database)
     const profile = {
-      fullName: data.full_name,
-      nickname: data.nickname,
-      email: data.email,
-      gender: data.gender,
-      birthday: data.birthday,
-      homeAddress: data.home_address,
-      workAddress: data.work_address,
-      frequentLocations: data.frequent_locations,
-      workingHours: data.working_hours,
-      aiPersonality: data.ai_personality,
-      responseLength: data.response_length,
-      budgetLevel: data.budget_level,
-      nudgePermission: data.nudge_permission
+      fullName: data.full_name || '',
+      nickname: data.nickname || '',
+      gender: data.gender || '',
+      birthday: data.birthday || '',
+      homeAddress: data.home_address || '',
+      workAddress: data.work_address || '',
+      frequentLocations: data.frequent_locations || [],
+      workingHours: data.working_hours || {},
+      aiPersonality: data.ai_personality || 'FRIENDLY',
+      responseLength: data.response_length || 'DETAILED',
+      nudgePermission: data.nudge_permission !== undefined ? data.nudge_permission : true
     };
 
     return NextResponse.json(profile);
