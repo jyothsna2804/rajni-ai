@@ -10,6 +10,7 @@ interface UserPreferencesFormProps {
 export default function UserPreferencesForm({ userId, onSubmit }: UserPreferencesFormProps) {
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
   const [preferences, setPreferences] = useState({
     // Food & Grocery Preferences
     groceryApps: [] as string[],
@@ -25,8 +26,8 @@ export default function UserPreferencesForm({ userId, onSubmit }: UserPreference
     flightBookingSites: [] as string[],
     flightPreferences: { class: 'economy', seat: 'window' },
     cabServices: [] as string[],
-    frequentFlightRoutes: [] as string[],
     cabTypePreference: '',
+    frequentFlightRoutes: [] as string[],
 
     // Shopping Preferences
     ecommerceSites: [] as string[],
@@ -34,27 +35,26 @@ export default function UserPreferencesForm({ userId, onSubmit }: UserPreference
     productCategories: [] as string[],
     monthlyShoppingBudget: '',
     preferredPaymentMethod: '',
-    spendingLimits: { daily: '', weekly: '', monthly: '' },
+    paymentMethods: [] as string[],
+    spendingLimits: {},
 
     // Location Preferences
     homeLocation: '',
     workLocation: '',
 
-    // Payment Preferences
-    paymentMethods: [] as string[],
-
     // Work Preferences
     calendarApp: '',
-    workingHours: { start: '', end: '' }
+    workingHours: { start: '', end: '' },
+
+    // AI Behavior Preferences
+    aiPersonality: 'FRIENDLY' as string,
+    responseLength: 'DETAILED' as string,
+    budgetLevel: 'MEDIUM' as string
   });
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Load existing preferences when component mounts
+  // Load existing preferences on component mount
   useEffect(() => {
     const loadExistingPreferences = async () => {
-      if (!userId) return;
-      
       try {
         const response = await fetch(`/api/user-preferences?userId=${userId}`);
         if (response.ok) {
@@ -64,579 +64,499 @@ export default function UserPreferencesForm({ userId, onSubmit }: UserPreference
           // Merge existing preferences with default values
           setPreferences(prev => ({
             ...prev,
-            ...existingPreferences,
-            // Ensure arrays are properly handled
-            groceryApps: existingPreferences.groceryApps || [],
-            foodApps: existingPreferences.foodApps || [],
-            preferredCuisines: existingPreferences.preferredCuisines || [],
-            goToRestaurants: existingPreferences.goToRestaurants || [],
-            flightBookingSites: existingPreferences.flightBookingSites || [],
-            cabServices: existingPreferences.cabServices || [],
-            frequentFlightRoutes: existingPreferences.frequentFlightRoutes || [],
-            ecommerceSites: existingPreferences.ecommerceSites || [],
-            favoriteBrands: existingPreferences.favoriteBrands || [],
-            productCategories: existingPreferences.productCategories || [],
-            paymentMethods: existingPreferences.paymentMethods || [],
-            // Ensure objects are properly handled
-            usualMealTimes: existingPreferences.usualMealTimes || { lunch: '', dinner: '' },
-            flightPreferences: existingPreferences.flightPreferences || { class: 'economy', seat: 'window' },
-            spendingLimits: existingPreferences.spendingLimits || { daily: '', weekly: '', monthly: '' },
-            workingHours: existingPreferences.workingHours || { start: '', end: '' }
+            ...existingPreferences
           }));
-        } else if (response.status === 404) {
-          console.log('No existing preferences found - using defaults');
+          setIsEditing(true); // User is editing existing preferences
         } else {
-          console.error('Error loading preferences:', response.status);
+          console.log('No existing preferences found, starting fresh');
+          setIsEditing(false); // User is creating new preferences
         }
       } catch (error) {
-        console.error('Error loading existing preferences:', error);
+        console.error('Error loading preferences:', error);
+        setIsEditing(false);
       } finally {
         setIsLoading(false);
       }
     };
 
-    loadExistingPreferences();
+    if (userId) {
+      loadExistingPreferences();
+    } else {
+      setIsLoading(false);
+    }
   }, [userId]);
 
-  const handleArrayChange = (field: string, value: string, checked: boolean) => {
+  const handleCheckboxChange = (category: string, value: string) => {
+    setPreferences(prev => {
+      const currentArray = prev[category as keyof typeof prev] as string[];
+      return {
+        ...prev,
+        [category]: currentArray.includes(value)
+          ? currentArray.filter((item: string) => item !== value)
+          : [...currentArray, value]
+      };
+    });
+  };
+
+  const handleInputChange = (field: string, value: any) => {
     setPreferences(prev => ({
       ...prev,
-      [field]: checked 
-        ? [...prev[field as keyof typeof prev] as string[], value]
-        : (prev[field as keyof typeof prev] as string[]).filter(item => item !== value)
+      [field]: value
+    }));
+  };
+
+  const handleNestedInputChange = (parent: string, field: string, value: any) => {
+    setPreferences(prev => ({
+      ...prev,
+      [parent]: {
+        ...(prev[parent as keyof typeof prev] as object),
+        [field]: value
+      }
     }));
   };
 
   const handleSubmit = async () => {
-    setIsSubmitting(true);
     try {
+      console.log('Submitting preferences:', preferences);
+      
       const response = await fetch('/api/user-preferences', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, preferences })
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId,
+          preferences
+        }),
       });
 
       if (response.ok) {
-        onSubmit?.(preferences);
+        const message = isEditing 
+          ? 'Your preferences have been updated successfully!' 
+          : 'Your preferences have been saved successfully!';
+        
+        alert(message);
+        
+        if (onSubmit) {
+          onSubmit(preferences);
+        } else if (!isEditing) {
+          // Only show the voice chat dialog for new users
+          const testVoiceChat = confirm('Would you like to test RajniAI now?');
+          if (testVoiceChat) {
+            window.location.href = '/voice-chat';
+          } else {
+            window.location.href = '/';
+          }
+        } else {
+          // For editing, go back to dashboard
+          window.location.href = '/dashboard';
+        }
       } else {
-        console.error('Failed to save preferences');
-        alert('Failed to save preferences. Please try again.');
+        const errorData = await response.json();
+        alert(`Error saving preferences: ${errorData.error || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Error saving preferences:', error);
       alert('Error saving preferences. Please try again.');
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
-  const renderStep1 = () => (
-    <div className="space-y-6">
-      <h3 className="text-xl font-semibold text-white mb-4">🍽️ Food & Grocery Preferences</h3>
-      
-      {/* Grocery Apps */}
-      <div>
-        <label className="block text-sm font-medium text-gray-300 mb-2">Grocery Apps</label>
-        <div className="grid grid-cols-2 gap-3">
-          {['BigBasket', 'Zepto', 'Blinkit', 'Grofers', 'Amazon Fresh', 'Dunzo', 'Instamart'].map(app => (
-            <label key={app} className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                checked={preferences.groceryApps.includes(app)}
-                onChange={(e) => handleArrayChange('groceryApps', app, e.target.checked)}
-                className="rounded border-gray-600 bg-gray-700 text-emerald-500"
-              />
-              <span className="text-gray-300">{app}</span>
-            </label>
-          ))}
-        </div>
-      </div>
-
-      {/* Food Apps */}
-      <div>
-        <label className="block text-sm font-medium text-gray-300 mb-2">Food Delivery Apps</label>
-        <div className="grid grid-cols-2 gap-3">
-          {['Swiggy', 'Zomato', 'Dunzo', 'Uber Eats', 'Zomato Pro', 'Swiggy One'].map(app => (
-            <label key={app} className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                checked={preferences.foodApps.includes(app)}
-                onChange={(e) => handleArrayChange('foodApps', app, e.target.checked)}
-                className="rounded border-gray-600 bg-gray-700 text-emerald-500"
-              />
-              <span className="text-gray-300">{app}</span>
-            </label>
-          ))}
-        </div>
-      </div>
-
-      {/* Preferred Cuisines */}
-      <div>
-        <label className="block text-sm font-medium text-gray-300 mb-2">Preferred Cuisines</label>
-        <div className="grid grid-cols-2 gap-3">
-          {['Indian', 'Chinese', 'Italian', 'Japanese', 'Mexican', 'Thai', 'Mediterranean', 'American', 'Korean', 'French', 'Middle Eastern', 'Vietnamese'].map(cuisine => (
-            <label key={cuisine} className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                checked={preferences.preferredCuisines.includes(cuisine)}
-                onChange={(e) => handleArrayChange('preferredCuisines', cuisine, e.target.checked)}
-                className="rounded border-gray-600 bg-gray-700 text-emerald-500"
-              />
-              <span className="text-gray-300">{cuisine}</span>
-            </label>
-          ))}
-        </div>
-      </div>
-
-      {/* Dietary Preferences */}
-      <div>
-        <label className="block text-sm font-medium text-gray-300 mb-2">Dietary Preferences</label>
-        <div className="space-y-3">
-          <label className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              checked={preferences.isVegetarian}
-              onChange={(e) => setPreferences(prev => ({ ...prev, isVegetarian: e.target.checked }))}
-              className="rounded border-gray-600 bg-gray-700 text-emerald-500"
-            />
-            <span className="text-gray-300">Vegetarian</span>
-          </label>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Spice Tolerance</label>
-            <select
-              value={preferences.spiceToleranceLevel}
-              onChange={(e) => setPreferences(prev => ({ ...prev, spiceToleranceLevel: e.target.value }))}
-              className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
-            >
-              <option value="">Select spice tolerance</option>
-              <option value="mild">Mild (No spice)</option>
-              <option value="medium">Medium (Some spice)</option>
-              <option value="hot">Hot (Spicy)</option>
-              <option value="very-hot">Very Hot (Extra spicy)</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* Delivery Time Preference */}
-      <div>
-        <label className="block text-sm font-medium text-gray-300 mb-2">Preferred Delivery Time</label>
-        <select
-          value={preferences.deliveryTimePreference}
-          onChange={(e) => setPreferences(prev => ({ ...prev, deliveryTimePreference: e.target.value }))}
-          className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
-        >
-          <option value="">Select delivery time</option>
-          <option value="asap">As soon as possible</option>
-          <option value="30min">Within 30 minutes</option>
-          <option value="1hour">Within 1 hour</option>
-          <option value="2hours">Within 2 hours</option>
-          <option value="specific">Specific time</option>
-        </select>
-      </div>
-
-      {/* Go-to Restaurants */}
-      <div>
-        <label className="block text-sm font-medium text-gray-300 mb-2">Favorite Restaurant Types</label>
-        <div className="grid grid-cols-2 gap-3">
-          {['Fine Dining', 'Casual Dining', 'Fast Food', 'Street Food', 'Cafes', 'Bars', 'Food Courts', 'Home Delivery Only'].map(type => (
-            <label key={type} className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                checked={preferences.goToRestaurants.includes(type)}
-                onChange={(e) => handleArrayChange('goToRestaurants', type, e.target.checked)}
-                className="rounded border-gray-600 bg-gray-700 text-emerald-500"
-              />
-              <span className="text-gray-300">{type}</span>
-            </label>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderStep2 = () => (
-    <div className="space-y-6">
-      <h3 className="text-xl font-semibold text-white mb-4">✈️ Travel & Transportation</h3>
-      
-      {/* Flight Booking Sites */}
-      <div>
-        <label className="block text-sm font-medium text-gray-300 mb-2">Flight Booking Sites</label>
-        <div className="grid grid-cols-2 gap-3">
-          {['MakeMyTrip', 'Goibibo', 'Yatra', 'Cleartrip', 'Booking.com', 'Skyscanner', 'Kayak', 'Expedia'].map(site => (
-            <label key={site} className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                checked={preferences.flightBookingSites.includes(site)}
-                onChange={(e) => handleArrayChange('flightBookingSites', site, e.target.checked)}
-                className="rounded border-gray-600 bg-gray-700 text-emerald-500"
-              />
-              <span className="text-gray-300">{site}</span>
-            </label>
-          ))}
-        </div>
-      </div>
-
-      {/* Frequent Flight Routes */}
-      <div>
-        <label className="block text-sm font-medium text-gray-300 mb-2">Frequent Flight Routes</label>
-        <div className="grid grid-cols-2 gap-3">
-          {['Delhi-Mumbai', 'Bangalore-Delhi', 'Mumbai-Bangalore', 'Chennai-Bangalore', 'Hyderabad-Bangalore', 'Kolkata-Delhi', 'Pune-Mumbai', 'Ahmedabad-Mumbai'].map(route => (
-            <label key={route} className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                checked={preferences.frequentFlightRoutes.includes(route)}
-                onChange={(e) => handleArrayChange('frequentFlightRoutes', route, e.target.checked)}
-                className="rounded border-gray-600 bg-gray-700 text-emerald-500"
-              />
-              <span className="text-gray-300">{route}</span>
-            </label>
-          ))}
-        </div>
-      </div>
-
-      {/* Flight Preferences */}
-      <div>
-        <label className="block text-sm font-medium text-gray-300 mb-2">Flight Class Preference</label>
-        <select
-          value={preferences.flightPreferences.class}
-          onChange={(e) => setPreferences(prev => ({ 
-            ...prev, 
-            flightPreferences: { ...prev.flightPreferences, class: e.target.value }
-          }))}
-          className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
-        >
-          <option value="economy">Economy</option>
-          <option value="premium-economy">Premium Economy</option>
-          <option value="business">Business</option>
-          <option value="first">First Class</option>
-        </select>
-      </div>
-
-      {/* Cab Services */}
-      <div>
-        <label className="block text-sm font-medium text-gray-300 mb-2">Cab Services</label>
-        <div className="grid grid-cols-2 gap-3">
-          {['Uber', 'Ola', 'Rapido', 'Meru', 'Auto', 'Local Taxi'].map(service => (
-            <label key={service} className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                checked={preferences.cabServices.includes(service)}
-                onChange={(e) => handleArrayChange('cabServices', service, e.target.checked)}
-                className="rounded border-gray-600 bg-gray-700 text-emerald-500"
-              />
-              <span className="text-gray-300">{service}</span>
-            </label>
-          ))}
-        </div>
-      </div>
-
-      {/* Cab Type Preference */}
-      <div>
-        <label className="block text-sm font-medium text-gray-300 mb-2">Preferred Cab Type</label>
-        <select
-          value={preferences.cabTypePreference}
-          onChange={(e) => setPreferences(prev => ({ ...prev, cabTypePreference: e.target.value }))}
-          className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
-        >
-          <option value="">Select cab type</option>
-          <option value="mini">Mini (Economy)</option>
-          <option value="prime">Prime (Sedan)</option>
-          <option value="auto">Auto Rickshaw</option>
-          <option value="bike">Bike Taxi</option>
-          <option value="luxury">Luxury</option>
-        </select>
-      </div>
-    </div>
-  );
-
-  const renderStep3 = () => (
-    <div className="space-y-6">
-      <h3 className="text-xl font-semibold text-white mb-4">🛒 Shopping & Payment</h3>
-      
-      {/* E-commerce Sites */}
-      <div>
-        <label className="block text-sm font-medium text-gray-300 mb-2">E-commerce Sites</label>
-        <div className="grid grid-cols-2 gap-3">
-          {['Amazon', 'Flipkart', 'Myntra', 'Nykaa', 'Ajio', 'Snapdeal', 'ShopClues', 'Paytm Mall'].map(site => (
-            <label key={site} className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                checked={preferences.ecommerceSites.includes(site)}
-                onChange={(e) => handleArrayChange('ecommerceSites', site, e.target.checked)}
-                className="rounded border-gray-600 bg-gray-700 text-emerald-500"
-              />
-              <span className="text-gray-300">{site}</span>
-            </label>
-          ))}
-        </div>
-      </div>
-
-      {/* Product Categories */}
-      <div>
-        <label className="block text-sm font-medium text-gray-300 mb-2">Product Categories</label>
-        <div className="grid grid-cols-2 gap-3">
-          {['Electronics', 'Fashion', 'Beauty', 'Home & Kitchen', 'Books', 'Sports', 'Automotive', 'Health', 'Baby Products', 'Pet Supplies', 'Garden', 'Tools'].map(category => (
-            <label key={category} className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                checked={preferences.productCategories.includes(category)}
-                onChange={(e) => handleArrayChange('productCategories', category, e.target.checked)}
-                className="rounded border-gray-600 bg-gray-700 text-emerald-500"
-              />
-              <span className="text-gray-300">{category}</span>
-            </label>
-          ))}
-        </div>
-      </div>
-
-      {/* Favorite Brands */}
-      <div>
-        <label className="block text-sm font-medium text-gray-300 mb-2">Favorite Brands</label>
-        <div className="grid grid-cols-2 gap-3">
-          {['Apple', 'Samsung', 'Nike', 'Adidas', 'Zara', 'H&M', 'Lakme', 'Maybelline', 'Puma', 'Reebok', 'Sony', 'LG'].map(brand => (
-            <label key={brand} className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                checked={preferences.favoriteBrands.includes(brand)}
-                onChange={(e) => handleArrayChange('favoriteBrands', brand, e.target.checked)}
-                className="rounded border-gray-600 bg-gray-700 text-emerald-500"
-              />
-              <span className="text-gray-300">{brand}</span>
-            </label>
-          ))}
-        </div>
-      </div>
-
-      {/* Monthly Shopping Budget */}
-      <div>
-        <label className="block text-sm font-medium text-gray-300 mb-2">Monthly Shopping Budget</label>
-        <select
-          value={preferences.monthlyShoppingBudget}
-          onChange={(e) => setPreferences(prev => ({ ...prev, monthlyShoppingBudget: e.target.value }))}
-          className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
-        >
-          <option value="">Select budget range</option>
-          <option value="under-5k">Under ₹5,000</option>
-          <option value="5k-10k">₹5,000 - ₹10,000</option>
-          <option value="10k-20k">₹10,000 - ₹20,000</option>
-          <option value="20k-50k">₹20,000 - ₹50,000</option>
-          <option value="above-50k">Above ₹50,000</option>
-        </select>
-      </div>
-
-      {/* Payment Methods */}
-      <div>
-        <label className="block text-sm font-medium text-gray-300 mb-2">Payment Methods</label>
-        <div className="grid grid-cols-2 gap-3">
-          {['UPI', 'Credit Card', 'Debit Card', 'Net Banking', 'Cash on Delivery', 'Digital Wallets', 'EMI'].map(method => (
-            <label key={method} className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                checked={preferences.paymentMethods.includes(method)}
-                onChange={(e) => handleArrayChange('paymentMethods', method, e.target.checked)}
-                className="rounded border-gray-600 bg-gray-700 text-emerald-500"
-              />
-              <span className="text-gray-300">{method}</span>
-            </label>
-          ))}
-        </div>
-      </div>
-
-      {/* Preferred Payment Method */}
-      <div>
-        <label className="block text-sm font-medium text-gray-300 mb-2">Most Preferred Payment Method</label>
-        <select
-          value={preferences.preferredPaymentMethod}
-          onChange={(e) => setPreferences(prev => ({ ...prev, preferredPaymentMethod: e.target.value }))}
-          className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
-        >
-          <option value="">Select preferred method</option>
-          <option value="UPI">UPI</option>
-          <option value="Credit Card">Credit Card</option>
-          <option value="Debit Card">Debit Card</option>
-          <option value="Net Banking">Net Banking</option>
-          <option value="Digital Wallets">Digital Wallets</option>
-        </select>
-      </div>
-    </div>
-  );
-
-  const renderStep4 = () => (
-    <div className="space-y-6">
-      <h3 className="text-xl font-semibold text-white mb-4">📍 Location & Work</h3>
-      
-      {/* Home Location */}
-      <div>
-        <label className="block text-sm font-medium text-gray-300 mb-2">Home Location</label>
-        <input
-          type="text"
-          value={preferences.homeLocation}
-          onChange={(e) => setPreferences(prev => ({ ...prev, homeLocation: e.target.value }))}
-          className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-emerald-500"
-          placeholder="e.g., Indiranagar, Bangalore"
-        />
-      </div>
-
-      {/* Work Location */}
-      <div>
-        <label className="block text-sm font-medium text-gray-300 mb-2">Work Location</label>
-        <input
-          type="text"
-          value={preferences.workLocation}
-          onChange={(e) => setPreferences(prev => ({ ...prev, workLocation: e.target.value }))}
-          className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-emerald-500"
-          placeholder="e.g., HSR Layout, Bangalore"
-        />
-      </div>
-
-      {/* Calendar App */}
-      <div>
-        <label className="block text-sm font-medium text-gray-300 mb-2">Calendar App</label>
-        <select
-          value={preferences.calendarApp}
-          onChange={(e) => setPreferences(prev => ({ ...prev, calendarApp: e.target.value }))}
-          className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
-        >
-          <option value="">Select calendar app</option>
-          <option value="Google Calendar">Google Calendar</option>
-          <option value="Outlook">Outlook</option>
-          <option value="Apple Calendar">Apple Calendar</option>
-          <option value="Microsoft Teams">Microsoft Teams</option>
-          <option value="Slack">Slack</option>
-          <option value="None">None</option>
-        </select>
-      </div>
-
-      {/* Working Hours */}
-      <div>
-        <label className="block text-sm font-medium text-gray-300 mb-2">Working Hours</label>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm text-gray-400 mb-1">Start Time</label>
-            <input
-              type="time"
-              value={preferences.workingHours.start}
-              onChange={(e) => setPreferences(prev => ({ 
-                ...prev, 
-                workingHours: { ...prev.workingHours, start: e.target.value }
-              }))}
-              className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-gray-400 mb-1">End Time</label>
-            <input
-              type="time"
-              value={preferences.workingHours.end}
-              onChange={(e) => setPreferences(prev => ({ 
-                ...prev, 
-                workingHours: { ...prev.workingHours, end: e.target.value }
-              }))}
-              className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Usual Meal Times */}
-      <div>
-        <label className="block text-sm font-medium text-gray-300 mb-2">Usual Meal Times</label>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm text-gray-400 mb-1">Lunch Time</label>
-            <input
-              type="time"
-              value={preferences.usualMealTimes.lunch}
-              onChange={(e) => setPreferences(prev => ({ 
-                ...prev, 
-                usualMealTimes: { ...prev.usualMealTimes, lunch: e.target.value }
-              }))}
-              className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-gray-400 mb-1">Dinner Time</label>
-            <input
-              type="time"
-              value={preferences.usualMealTimes.dinner}
-              onChange={(e) => setPreferences(prev => ({ 
-                ...prev, 
-                usualMealTimes: { ...prev.usualMealTimes, dinner: e.target.value }
-              }))}
-              className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  // Show loading state while fetching existing preferences
   if (isLoading) {
     return (
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-white/5 backdrop-blur-sm rounded-lg p-8 border border-white/10 text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto mb-4"></div>
-          <p className="text-gray-300">Loading your preferences...</p>
-        </div>
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
+        <div className="text-white text-xl">Loading your preferences...</div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
-      {/* Progress Bar */}
-      <div className="mb-8">
-        <div className="flex justify-between items-center mb-2">
-          <span className="text-sm text-gray-400">Step {step} of 4</span>
-          <span className="text-sm text-emerald-400">{Math.round((step / 4) * 100)}% Complete</span>
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 p-4">
+      <div className="max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-white mb-4">
+            {isEditing ? '✏️ Edit Your Preferences' : '🎯 Set Your Preferences'}
+          </h1>
+          <p className="text-xl text-gray-300">
+            {isEditing 
+              ? 'Update your preferences to personalize your RajniAI experience'
+              : 'Help RajniAI understand your preferences for a personalized experience'
+            }
+          </p>
         </div>
-        <div className="w-full bg-gray-700 rounded-full h-2">
-          <div 
-            className="bg-emerald-500 h-2 rounded-full transition-all duration-300"
-            style={{ width: `${(step / 4) * 100}%` }}
-          ></div>
+
+        {/* Progress Indicator */}
+        <div className="flex justify-center mb-8">
+          <div className="flex space-x-2">
+            {[1, 2, 3, 4].map((stepNum) => (
+              <div
+                key={stepNum}
+                className={`w-3 h-3 rounded-full ${
+                  step >= stepNum ? 'bg-purple-500' : 'bg-gray-500'
+                }`}
+              />
+            ))}
+          </div>
         </div>
-      </div>
 
-      {/* Step Content */}
-      <div className="bg-white/5 backdrop-blur-sm rounded-lg p-8 border border-white/10">
-        {step === 1 && renderStep1()}
-        {step === 2 && renderStep2()}
-        {step === 3 && renderStep3()}
-        {step === 4 && renderStep4()}
+        <div className="bg-white/10 backdrop-blur-sm rounded-xl p-8 border border-white/20">
+          {/* Step 1: Food & Grocery Preferences */}
+          {step === 1 && (
+            <div>
+              <h2 className="text-2xl font-bold text-white mb-6">🍽️ Food & Grocery Preferences</h2>
+              
+              <div className="grid md:grid-cols-2 gap-6">
+                {/* Grocery Apps */}
+                <div>
+                  <label className="block text-white font-semibold mb-3">Preferred Grocery Apps:</label>
+                  <div className="space-y-2">
+                    {['BigBasket', 'Grofers', 'Amazon Fresh', 'Flipkart Grocery', 'Blinkit', 'Zepto', 'Swiggy Instamart'].map((app) => (
+                      <label key={app} className="flex items-center text-white">
+                        <input
+                          type="checkbox"
+                          checked={preferences.groceryApps.includes(app)}
+                          onChange={() => handleCheckboxChange('groceryApps', app)}
+                          className="mr-2"
+                        />
+                        {app}
+                      </label>
+                    ))}
+                  </div>
+                </div>
 
-        {/* Navigation Buttons */}
-        <div className="flex justify-between mt-8">
-          <button
-            type="button"
-            onClick={() => setStep(Math.max(1, step - 1))}
-            disabled={step === 1}
-            className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            ← Previous
-          </button>
+                {/* Food Delivery Apps */}
+                <div>
+                  <label className="block text-white font-semibold mb-3">Preferred Food Apps:</label>
+                  <div className="space-y-2">
+                    {['Swiggy', 'Zomato', 'Uber Eats', 'Dominos', 'Pizza Hut', 'KFC', 'McDonald\'s'].map((app) => (
+                      <label key={app} className="flex items-center text-white">
+                        <input
+                          type="checkbox"
+                          checked={preferences.foodApps.includes(app)}
+                          onChange={() => handleCheckboxChange('foodApps', app)}
+                          className="mr-2"
+                        />
+                        {app}
+                      </label>
+                    ))}
+                  </div>
+                </div>
 
-          {step < 4 ? (
-            <button
-              type="button"
-              onClick={() => setStep(step + 1)}
-              className="px-6 py-3 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
-            >
-              Next →
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={isSubmitting}
-              className="px-6 py-3 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {isSubmitting ? 'Saving...' : 'Save Preferences'}
-            </button>
+                {/* Preferred Cuisines */}
+                <div>
+                  <label className="block text-white font-semibold mb-3">Preferred Cuisines:</label>
+                  <div className="space-y-2">
+                    {['Indian', 'Chinese', 'Italian', 'Mexican', 'Thai', 'Japanese', 'Mediterranean', 'American'].map((cuisine) => (
+                      <label key={cuisine} className="flex items-center text-white">
+                        <input
+                          type="checkbox"
+                          checked={preferences.preferredCuisines.includes(cuisine)}
+                          onChange={() => handleCheckboxChange('preferredCuisines', cuisine)}
+                          className="mr-2"
+                        />
+                        {cuisine}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Dietary Preferences */}
+                <div className="space-y-4">
+                  <div>
+                    <label className="flex items-center text-white">
+                      <input
+                        type="checkbox"
+                        checked={preferences.isVegetarian}
+                        onChange={(e) => handleInputChange('isVegetarian', e.target.checked)}
+                        className="mr-2"
+                      />
+                      I am vegetarian
+                    </label>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-white font-semibold mb-2">Spice Tolerance:</label>
+                    <select
+                      value={preferences.spiceToleranceLevel}
+                      onChange={(e) => handleInputChange('spiceToleranceLevel', e.target.value)}
+                      className="w-full p-2 rounded-lg bg-white/20 text-white border border-white/30"
+                    >
+                      <option value="">Select spice level</option>
+                      <option value="Mild">Mild</option>
+                      <option value="Medium">Medium</option>
+                      <option value="Spicy">Spicy</option>
+                      <option value="Very Spicy">Very Spicy</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
+
+          {/* Step 2: Travel Preferences */}
+          {step === 2 && (
+            <div>
+              <h2 className="text-2xl font-bold text-white mb-6">✈️ Travel Preferences</h2>
+              
+              <div className="grid md:grid-cols-2 gap-6">
+                {/* Flight Booking Sites */}
+                <div>
+                  <label className="block text-white font-semibold mb-3">Flight Booking Sites:</label>
+                  <div className="space-y-2">
+                    {['MakeMyTrip', 'Cleartrip', 'Goibibo', 'Yatra', 'Booking.com', 'Expedia', 'IndiGo', 'Air India'].map((site) => (
+                      <label key={site} className="flex items-center text-white">
+                        <input
+                          type="checkbox"
+                          checked={preferences.flightBookingSites.includes(site)}
+                          onChange={() => handleCheckboxChange('flightBookingSites', site)}
+                          className="mr-2"
+                        />
+                        {site}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Cab Services */}
+                <div>
+                  <label className="block text-white font-semibold mb-3">Preferred Cab Services:</label>
+                  <div className="space-y-2">
+                    {['Uber', 'Ola', 'Rapido', 'Meru', 'Local Taxi'].map((service) => (
+                      <label key={service} className="flex items-center text-white">
+                        <input
+                          type="checkbox"
+                          checked={preferences.cabServices.includes(service)}
+                          onChange={() => handleCheckboxChange('cabServices', service)}
+                          className="mr-2"
+                        />
+                        {service}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Flight Preferences */}
+                <div>
+                  <label className="block text-white font-semibold mb-2">Flight Class:</label>
+                  <select
+                    value={preferences.flightPreferences.class}
+                    onChange={(e) => handleNestedInputChange('flightPreferences', 'class', e.target.value)}
+                    className="w-full p-2 rounded-lg bg-white/20 text-white border border-white/30 mb-4"
+                  >
+                    <option value="economy">Economy</option>
+                    <option value="premium-economy">Premium Economy</option>
+                    <option value="business">Business</option>
+                    <option value="first">First Class</option>
+                  </select>
+                  
+                  <label className="block text-white font-semibold mb-2">Seat Preference:</label>
+                  <select
+                    value={preferences.flightPreferences.seat}
+                    onChange={(e) => handleNestedInputChange('flightPreferences', 'seat', e.target.value)}
+                    className="w-full p-2 rounded-lg bg-white/20 text-white border border-white/30"
+                  >
+                    <option value="window">Window</option>
+                    <option value="aisle">Aisle</option>
+                    <option value="middle">Middle</option>
+                  </select>
+                </div>
+
+                {/* Locations */}
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-white font-semibold mb-2">Home Location:</label>
+                    <input
+                      type="text"
+                      value={preferences.homeLocation}
+                      onChange={(e) => handleInputChange('homeLocation', e.target.value)}
+                      placeholder="e.g., Bangalore, Indiranagar"
+                      className="w-full p-2 rounded-lg bg-white/20 text-white border border-white/30 placeholder-gray-400"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-white font-semibold mb-2">Work Location:</label>
+                    <input
+                      type="text"
+                      value={preferences.workLocation}
+                      onChange={(e) => handleInputChange('workLocation', e.target.value)}
+                      placeholder="e.g., Bangalore, HSR Layout"
+                      className="w-full p-2 rounded-lg bg-white/20 text-white border border-white/30 placeholder-gray-400"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Shopping Preferences */}
+          {step === 3 && (
+            <div>
+              <h2 className="text-2xl font-bold text-white mb-6">🛒 Shopping Preferences</h2>
+              
+              <div className="grid md:grid-cols-2 gap-6">
+                {/* E-commerce Sites */}
+                <div>
+                  <label className="block text-white font-semibold mb-3">E-commerce Sites:</label>
+                  <div className="space-y-2">
+                    {['Amazon', 'Flipkart', 'Myntra', 'Ajio', 'Nykaa', 'FirstCry', 'BigBasket', 'Pepperfry'].map((site) => (
+                      <label key={site} className="flex items-center text-white">
+                        <input
+                          type="checkbox"
+                          checked={preferences.ecommerceSites.includes(site)}
+                          onChange={() => handleCheckboxChange('ecommerceSites', site)}
+                          className="mr-2"
+                        />
+                        {site}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Payment Methods */}
+                <div>
+                  <label className="block text-white font-semibold mb-3">Payment Methods:</label>
+                  <div className="space-y-2">
+                    {['Credit Card', 'Debit Card', 'UPI', 'GPay', 'PhonePe', 'Paytm', 'Net Banking', 'Cash on Delivery'].map((method) => (
+                      <label key={method} className="flex items-center text-white">
+                        <input
+                          type="checkbox"
+                          checked={preferences.paymentMethods.includes(method)}
+                          onChange={() => handleCheckboxChange('paymentMethods', method)}
+                          className="mr-2"
+                        />
+                        {method}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Budget */}
+                <div>
+                  <label className="block text-white font-semibold mb-2">Monthly Shopping Budget:</label>
+                  <input
+                    type="text"
+                    value={preferences.monthlyShoppingBudget}
+                    onChange={(e) => handleInputChange('monthlyShoppingBudget', e.target.value)}
+                    placeholder="e.g., ₹10,000"
+                    className="w-full p-2 rounded-lg bg-white/20 text-white border border-white/30 placeholder-gray-400"
+                  />
+                </div>
+
+                {/* Calendar App */}
+                <div>
+                  <label className="block text-white font-semibold mb-2">Calendar App:</label>
+                  <select
+                    value={preferences.calendarApp}
+                    onChange={(e) => handleInputChange('calendarApp', e.target.value)}
+                    className="w-full p-2 rounded-lg bg-white/20 text-white border border-white/30"
+                  >
+                    <option value="">Select calendar app</option>
+                    <option value="Google Calendar">Google Calendar</option>
+                    <option value="Outlook">Outlook</option>
+                    <option value="Apple Calendar">Apple Calendar</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Step 4: AI Behavior Preferences */}
+          {step === 4 && (
+            <div>
+              <h2 className="text-2xl font-bold text-white mb-6">🤖 AI Behavior Preferences</h2>
+              
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-white font-semibold mb-2">AI Personality:</label>
+                  <select
+                    value={preferences.aiPersonality}
+                    onChange={(e) => handleInputChange('aiPersonality', e.target.value)}
+                    className="w-full p-2 rounded-lg bg-white/20 text-white border border-white/30"
+                  >
+                    <option value="FRIENDLY">Friendly & Casual</option>
+                    <option value="PROFESSIONAL">Professional & Formal</option>
+                    <option value="CASUAL">Very Casual</option>
+                    <option value="ENTHUSIASTIC">Enthusiastic & Energetic</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-white font-semibold mb-2">Response Length:</label>
+                  <select
+                    value={preferences.responseLength}
+                    onChange={(e) => handleInputChange('responseLength', e.target.value)}
+                    className="w-full p-2 rounded-lg bg-white/20 text-white border border-white/30"
+                  >
+                    <option value="SHORT">Short & Concise</option>
+                    <option value="MEDIUM">Medium Length</option>
+                    <option value="DETAILED">Detailed & Comprehensive</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-white font-semibold mb-2">Budget Level:</label>
+                  <select
+                    value={preferences.budgetLevel}
+                    onChange={(e) => handleInputChange('budgetLevel', e.target.value)}
+                    className="w-full p-2 rounded-lg bg-white/20 text-white border border-white/30"
+                  >
+                    <option value="LOW">Budget-Conscious</option>
+                    <option value="MEDIUM">Moderate Budget</option>
+                    <option value="HIGH">Premium/Luxury</option>
+                  </select>
+                </div>
+
+                {/* Working Hours */}
+                <div>
+                  <label className="block text-white font-semibold mb-2">Working Hours:</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="time"
+                      value={preferences.workingHours.start}
+                      onChange={(e) => handleNestedInputChange('workingHours', 'start', e.target.value)}
+                      className="flex-1 p-2 rounded-lg bg-white/20 text-white border border-white/30"
+                    />
+                    <span className="text-white self-center">to</span>
+                    <input
+                      type="time"
+                      value={preferences.workingHours.end}
+                      onChange={(e) => handleNestedInputChange('workingHours', 'end', e.target.value)}
+                      className="flex-1 p-2 rounded-lg bg-white/20 text-white border border-white/30"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Navigation Buttons */}
+          <div className="flex justify-between mt-8">
+            <button
+              onClick={() => setStep(Math.max(1, step - 1))}
+              disabled={step === 1}
+              className="px-6 py-2 bg-gray-600 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-700 transition-colors"
+            >
+              Previous
+            </button>
+            
+            {step < 4 ? (
+              <button
+                onClick={() => setStep(Math.min(4, step + 1))}
+                className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+              >
+                Next
+              </button>
+            ) : (
+              <button
+                onClick={handleSubmit}
+                className="px-8 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold"
+              >
+                {isEditing ? 'Update Preferences' : 'Save Preferences'}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
