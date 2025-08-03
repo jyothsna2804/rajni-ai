@@ -59,21 +59,8 @@ export default function Dashboard() {
           </div>
           <h1 className="text-3xl font-bold text-white">RajniAI Dashboard</h1>
         </div>
-        <div className="flex items-center gap-4">
-          <span className="text-gray-300">Welcome back, {user.name || user.email}! 👋</span>
-          <button
-            onClick={() => window.location.href = '/profile'}
-            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-          >
-            👤 Profile
-          </button>
-          <button
-            onClick={handleSignOut}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-          >
-            Sign Out
-          </button>
-        </div>
+        {/* Right side now empty – global navbar already includes actions */}
+        <div />
       </div>
 
       {/* Main Content */}
@@ -120,6 +107,35 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* Preferences Summary (moved up) */}
+        {preferences && (
+          <div className="bg-slate-800/50 rounded-xl p-6 mb-8">
+            <h3 className="text-xl font-semibold text-white mb-4">Your Preferences</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="bg-slate-700/50 rounded-lg p-4">
+                <h4 className="font-semibold text-emerald-400 mb-2">🏠 Home Location</h4>
+                <p className="text-gray-300">{preferences.homeLocation || 'Not set'}</p>
+              </div>
+              <div className="bg-slate-700/50 rounded-lg p-4">
+                <h4 className="font-semibold text-emerald-400 mb-2">🚗 Preferred Cab</h4>
+                <p className="text-gray-300">{preferences.cabServices?.length ? preferences.cabServices.join(', ') : 'Not set'}</p>
+              </div>
+              <div className="bg-slate-700/50 rounded-lg p-4">
+                <h4 className="font-semibold text-emerald-400 mb-2">🍽️ Cuisines</h4>
+                <p className="text-gray-300">{preferences.preferredCuisines?.length ? preferences.preferredCuisines.join(', ') : 'Not set'}</p>
+              </div>
+            </div>
+            <div className="mt-4">
+              <button
+                onClick={() => window.location.href = '/preferences'}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Edit Preferences
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Quick Actions */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-slate-800/50 rounded-xl p-6">
@@ -159,38 +175,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* User Preferences Summary */}
-        {preferences && (
-          <div className="bg-slate-800/50 rounded-xl p-6">
-            <h3 className="text-xl font-semibold text-white mb-4">Your Preferences</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div className="bg-slate-700/50 rounded-lg p-4">
-                <h4 className="font-semibold text-emerald-400 mb-2">🏠 Home Location</h4>
-                <p className="text-gray-300">{preferences.homeLocation || 'Not set'}</p>
-              </div>
-              <div className="bg-slate-700/50 rounded-lg p-4">
-                <h4 className="font-semibold text-emerald-400 mb-2">🚗 Preferred Cab</h4>
-                <p className="text-gray-300">
-                  {preferences.cabServices?.length > 0 ? preferences.cabServices.join(', ') : 'Not set'}
-                </p>
-              </div>
-              <div className="bg-slate-700/50 rounded-lg p-4">
-                <h4 className="font-semibold text-emerald-400 mb-2">🍽️ Cuisines</h4>
-                <p className="text-gray-300">
-                  {preferences.preferredCuisines?.length > 0 ? preferences.preferredCuisines.join(', ') : 'Not set'}
-                </p>
-              </div>
-            </div>
-            <div className="mt-4">
-              <button
-                onClick={() => window.location.href = '/preferences'}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                Edit Preferences
-              </button>
-            </div>
-          </div>
-        )}
+        {/* Preferences summary removed from bottom (relocated) */}
       </div>
     </div>
   );
