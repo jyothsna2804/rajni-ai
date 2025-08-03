@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 
 export default function Navbar() {
   const [user, setUser] = useState<any>(null);
+  const pathname = usePathname();
 
   useEffect(() => {
     // Check if user data exists in localStorage
@@ -59,8 +61,8 @@ export default function Navbar() {
           FAQ
         </button>
 
-        {/* Authenticated actions */}
-        {user && (
+        {/* Authenticated actions – hide on auth pages */}
+        {user && !['/signin', '/signup', '/forgot-password'].includes(pathname) && (
           <>
             <button
               onClick={() => (window.location.href = '/profile')}

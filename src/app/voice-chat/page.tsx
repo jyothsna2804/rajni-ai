@@ -164,18 +164,7 @@ export default function VoiceChat() {
           >
             ← Back to Dashboard
           </button>
-          <button
-            onClick={() => window.location.href = '/profile'}
-            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-          >
-            👤 Profile
-          </button>
-          <button
-            onClick={handleSignOut}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-          >
-            Sign Out
-          </button>
+          {/* Profile & Sign-out handled by global Navbar – removed duplicates */}
         </div>
       </div>
 

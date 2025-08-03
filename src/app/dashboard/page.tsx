@@ -96,15 +96,7 @@ export default function Dashboard() {
             </div>
           )}
           
-          <div className="mt-6">
-            <button
-              onClick={() => window.location.href = '/voice-chat'}
-              className="px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-2"
-            >
-              <span>🎤</span>
-              <span>Start Voice Chat</span>
-            </button>
-          </div>
+          {/* Removed redundant Start Voice Chat button – quick actions below already provide this */}
         </div>
 
         {/* Preferences Summary (moved up) */}
