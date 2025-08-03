@@ -22,7 +22,7 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="flex justify-between items-center p-6 bg-transparent">
+    <nav className="flex justify-between items-center p-6 bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900/90">
       {/* Brand */}
       <div
         onClick={() => (window.location.href = '/')}
