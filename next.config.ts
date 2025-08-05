@@ -1,12 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Don’t block the CI build if there are ESLint or TS type errors – they will still be shown in the logs
+  // ⛔️ Skip ESLint and TS errors during the Vercel build so deployment doesn’t fail.
+  // We still see them locally so we can fix them later, but they won’t block prod.
   eslint: {
     ignoreDuringBuilds: true,
   },
   typescript: {
-    // WARNING: keep this temporary. Once the codebase stabilises, turn it off to catch real errors.
     ignoreBuildErrors: true,
   },
 };
