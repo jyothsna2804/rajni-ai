@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { supabase } from '@/lib/supabase';
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+import { detectOndcIntent, searchProducts, placeOrder, formatSearchResultsForAssistant } from '@/lib/ondc';
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,6 +14,30 @@ export async function POST(request: NextRequest) {
     console.log('Processing message:', message);
     console.log('Conversation length:', conversation?.length || 0);
     console.log('User ID:', userId);
+
+    // ONDC intent detection and action (search/order)
+    const ondcIntent = detectOndcIntent(message);
+    if (ondcIntent) {
+      console.log('[ONDC] intent detected:', ondcIntent);
+      if (ondcIntent.type === 'search') {
+        const items = await searchProducts({ query: ondcIntent.query, limit: 5 });
+        const assistantText = formatSearchResultsForAssistant(items, ondcIntent.query);
+        return NextResponse.json({ response: assistantText });
+      }
+      if (ondcIntent.type === 'order') {
+        const items = await searchProducts({ query: ondcIntent.productQuery, limit: 3 });
+        const selected = items[0];
+        if (!selected) {
+          return NextResponse.json({ response: `I could not find "${ondcIntent.productQuery}" on ONDC. Try another product.` });
+        }
+        const qty = Math.max(1, ondcIntent.quantity || 1);
+        const order = await placeOrder({ item: selected, quantity: qty });
+        if (order.status === 'PLACED') {
+          return NextResponse.json({ response: `Order placed on ONDC. Order ID: ${order.orderId}.` });
+        }
+        return NextResponse.json({ response: `Sorry, the ONDC order failed. ${order.message || ''}` });
+      }
+    }
 
     // Debug: Log the conversation history
     if (conversation && conversation.length > 0) {
@@ -158,14 +179,21 @@ Use this information to provide personalized responses. If the user mentions boo
       console.log(`  ${index + 1}. ${msg.role}: ${msg.content.substring(0, 100)}...`);
     });
 
+    // Lazy init OpenAI to avoid build-time failures
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json({ response: 'AI is not configured. Please set OPENAI_API_KEY.' });
+    }
+    const openai = new OpenAI({ apiKey });
+
     // Get response from GPT-3.5 Turbo with improved settings (much cheaper than GPT-4)
     const completion = await openai.chat.completions.create({
-      model: 'gpt-3.5-turbo', // Changed from gpt-4 to gpt-3.5-turbo for cost savings
+      model: 'gpt-3.5-turbo',
       messages: messages,
-      max_tokens: 500, // Increased from 300
+      max_tokens: 500,
       temperature: 0.7,
-      presence_penalty: 0.1, // Slightly encourage new topics
-      frequency_penalty: 0.1, // Slightly reduce repetition
+      presence_penalty: 0.1,
+      frequency_penalty: 0.1,
     });
 
     const response = completion.choices[0]?.message?.content || 'Sorry, I didn\'t understand that. Could you please repeat?';
